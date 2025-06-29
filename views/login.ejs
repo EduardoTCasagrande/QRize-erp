@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login - Quiosque</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-100 to-slate-200 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <%- include('partials/header') %>
+
+  <!-- Conteúdo principal -->
+  <main class="flex-grow flex items-center justify-center px-4">
+    <div class="w-full max-w-md bg-white/90 backdrop-blur shadow-lg rounded-2xl p-8">
+
+      <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Login do Quiosque</h2>
+
+      <form id="loginForm" class="space-y-4">
+        <input
+          type="text"
+          id="username"
+          placeholder="Usuário"
+          required
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+
+        <input
+          type="password"
+          id="senha"
+          placeholder="Senha"
+          required
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+
+        <button
+          type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-all duration-200"
+        >
+          Entrar
+        </button>
+      </form>
+
+      <div id="mensagem" class="mt-4 text-center text-red-600 text-sm"></div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <%- include('partials/footer') %>
+
+  <!-- Script -->
+  <script>
+    const form = document.getElementById('loginForm');
+    const mensagem = document.getElementById('mensagem');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value.trim();
+      const senha = document.getElementById('senha').value.trim();
+
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, senha })
+        });
+
+        const data = await res.json();
+
+        if (data.status === 'ok') {
+          window.location.href = '/dashboard';
+        } else {
+          mensagem.textContent = data.mensagem;
+        }
+      } catch (err) {
+        mensagem.textContent = 'Erro na conexão.';
+        console.error(err);
+      }
+    });
+  </script>
+
+</body>
+</html>

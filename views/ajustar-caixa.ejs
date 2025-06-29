@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/style.css">
+  <title>AJUSTAR CAIXA</title>
+</head>
+<body class="caixa-ajuste">
+
+<%- include('partials/header') %>
+
+<main>
+  <div>
+    <h3>Alterar Valor Inicial de um Quiosque</h3>
+    <select id="quiosqueSelectAdmin"></select>
+    <input type="number" id="novoValor" placeholder="Novo valor" step="0.01" />
+    <button onclick="atualizarCaixa()">Atualizar</button>
+    <div id="resultadoAdminCaixa"></div>
+  </div>
+</main>
+<%- include('partials/footer') %>
+
+<script>
+ async function atualizarCaixa() {
+  const quiosque = document.getElementById('quiosqueSelectAdmin').value;
+  const novoValor = parseFloat(document.getElementById('novoValor').value);
+
+  const res = await fetch('/api/caixa/ajustar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quiosque, valor: novoValor })
+  });
+
+  const data = await res.json();
+  document.getElementById('resultadoAdminCaixa').innerText = data.mensagem || data.erro;
+}
+
+
+  // preencher select com quiosques
+  window.onload = async () => {
+    const res = await fetch('/api/quiosques');
+    const { quiosques } = await res.json();
+    const select = document.getElementById('quiosqueSelectAdmin');
+    quiosques.forEach(q => {
+      const option = document.createElement('option');
+      option.value = q;
+      option.textContent = q;
+      select.appendChild(option);
+    });
+  };
+</script>
+  
+
+</body>
+</html>
+

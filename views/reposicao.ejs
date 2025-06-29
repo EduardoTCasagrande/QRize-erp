@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reposição de Produtos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+  <%- include('partials/header') %>
+
+  <main class="flex-grow container mx-auto p-6">
+    <div class="flex flex-col md:flex-row md:space-x-6 space-y-6 md:space-y-0">
+      
+      <!-- Box da esquerda: Formulário e controle -->
+      <div class="bg-white rounded shadow p-6 flex-1">
+        <h1 class="text-2xl font-semibold mb-4">Reposição</h1>
+
+        <label for="quiosqueSelect" class="block font-medium mb-1">Selecione o quiosque:</label>
+        <select
+          id="quiosqueSelect"
+          class="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+          <%= (user.admin || user.nivel === 'repositor') ? '' : 'disabled hidden' %>
+        >
+          <% if (!(user.admin || user.nivel === 'repositor')) { %>
+            <option value="<%= user.quiosque %>" selected><%= user.quiosque %></option>
+          <% } else { %>
+            <option value="">-- Escolha um quiosque --</option>
+          <% } %>
+        </select>
+
+        <label for="inputSKU" class="block font-medium mb-1">Bipagem Manual:</label>
+        <input
+          type="text"
+          id="inputSKU"
+          placeholder="Escaneie com o bipador"
+          autofocus
+          class="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+        />
+
+        <div class="mb-4 text-center text-gray-700" id="mensagem">Selecione um quiosque para começar.</div>
+
+        <label for="separadorInput" class="block font-medium mb-1">Quem separou:</label>
+        <input
+          type="text"
+          id="separadorInput"
+          placeholder="Nome do separador"
+          class="w-full border border-gray-300 rounded px-3 py-2 mb-6"
+        />
+
+        <button
+          onclick="enviarRelatorio()"
+          class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+        >
+          📤 Finalizar Reposição
+        </button>
+      </div>
+
+      <!-- Box da direita: Resumo e audios -->
+      <div class="bg-white rounded shadow p-6 flex-1 flex flex-col">
+        <div id="cabecalho" class="mb-4 font-semibold text-lg"></div>
+        <div id="resumo" class="flex-grow overflow-auto text-gray-800"></div>
+
+        <audio id="beep-sound" src="/certo.mp3" preload="auto"></audio>
+        <audio id="erro-sound" src="/errado.mp3" preload="auto"></audio>
+      </div>
+
+    </div>
+  </main>
+
+  <%- include('partials/footer') %>
+
+  <script>
+    // Seu código JS permanece igual, sem alteração
+    const beepSound = document.getElementById("beep-sound");
+    const erroSound = document.getElementById("erro-sound");
+    let leituraHabilitada = false;
+    let dadosPlanejados = {};
+    let contagemAtual = {};
+    const sheetID = "1P9flPSIzvZNn68RuhBI3WW1333vfJhCbDPh8N_FtYJA";
+    const sheetName = "Página1";
+
+    async function carregarQuiosqueDaSessao() {
+      try {
+        const res = await fetch('/session-user');
+        const user = await res.json();
+
+        if (!user || !user.username) {
+          alert("Sessão expirada. Faça login novamente.");
+          return window.location.href = "/login";
+        }
+
+        const select = document.getElementById("quiosqueSelect");
+
+        if (user.admin || user.nivel === 'repositor') {
+          select.disabled = false;
+          select.hidden = false;
+          select.innerHTML = '<option value="">-- Escolha um quiosque --</option>';
+
+          const resQuiosques = await fetch('/quiosques');
+          const data = await resQuiosques.json();
+
+          data.quiosques.forEach(q => {
+            const option = document.createElement("option");
+            option.value = q;
+            option.textContent = q;
+            select.appendChild(option);
+          });
+
+          select.addEventListener('change', () => {
+            if (select.value) carregarReposicao(select.value);
+          });
+
+        } else {
+          select.disabled = true;
+          select.hidden = true;
+          select.innerHTML = `<option value="${user.quiosque}" selected>${user.quiosque}</option>`;
+          await carregarReposicao(user.quiosque);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar usuário da sessão:", err);
+      }
+    }
+
+    function excelDateToJSDate(serial) {
+      const utc_days = Math.floor(serial - 25569);
+      const utc_value = utc_days * 86400;
+      const date_info = new Date(utc_value * 1000);
+      return date_info.toISOString().split('T')[0];
+    }
+
+    async function gerarQueryURL(nomeQuiosque) {
+      try {
+        const response = await fetch(`/quiosque-info/${encodeURIComponent(nomeQuiosque)}`);
+        if (!response.ok) throw new Error('Erro ao buscar dados do quiosque');
+        const { range, colunas } = await response.json();
+        const query = encodeURIComponent(`SELECT ${colunas}`);
+        return `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tq=${query}&sheet=${sheetName}`;
+      } catch (err) {
+        console.error(err);
+        return null;
+      }
+    }
+
+    async function carregarReposicao(quiosque) {
+      const url = await gerarQueryURL(quiosque);
+      if (!url) return;
+
+      try {
+        const res = await fetch(url);
+        const text = await res.text();
+        const json = JSON.parse(text.substring(47).slice(0, -2));
+        let rows = json.table.rows;
+
+        if (!rows || rows.length === 0) return;
+
+        const cabecalho = rows[0];
+        const titulo = cabecalho.c.map((col, idx) => col?.v || "").join(" / ");
+        document.getElementById("cabecalho").innerText = titulo;
+
+        rows = rows.slice(1);
+
+        const dados = {};
+        rows.forEach(row => {
+          if (row.c && row.c.length > 1) {
+            let sku = (row.c[0]?.v || "").toString().trim().toLowerCase();
+            let qtd = parseInt(row.c[1]?.v);
+
+            if (!sku || isNaN(qtd)) return;
+
+            if (sku.includes("kit completo rosa") || sku.includes("kit completo azul")) {
+              // SKU de kit (20 unidades por bip)
+              const kits = Math.ceil(qtd / 20);
+              dados[sku] = kits;
+
+            } else if (sku.includes("prendedor menina") || sku.includes("prendedor menino")) {
+              // SKU de prendedores (5 unidades por bip)
+              const kits = Math.ceil(qtd / 5);
+              dados[sku] = kits;
+
+            } else {
+              // Outros SKUs normais
+              dados[sku] = qtd;
+            }
+          }
+        });
+
+        dadosPlanejados = dados;
+        contagemAtual = {};
+
+        await fetch('/reposicao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dados, quiosque })
+        });
+
+        leituraHabilitada = true;
+        document.getElementById("mensagem").innerText = "Reposição carregada. Escaneie um produto.";
+        atualizarResumo();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function atualizarResumo() {
+      const resumoDiv = document.getElementById("resumo");
+      let resumoHTML = "<h3 class='font-semibold mb-2'>Status da Reposição:</h3><ul class='list-disc list-inside'>";
+
+      const pendentes = Object.keys(dadosPlanejados).filter(sku => {
+        const planejado = dadosPlanejados[sku];
+        const atualBipado = contagemAtual[sku] || 0;
+
+        const multiplicador = (sku.includes('prendedor menina') || sku.includes('prendedor menino')) ? 5 : 1;
+        const atualReal = atualBipado * multiplicador;
+
+        return atualReal < planejado;
+      });
+
+      if (pendentes.length === 0) {
+        resumoHTML += "<li>🎉 Todos os produtos foram bipados!</li>";
+      } else {
+        pendentes.forEach(sku => {
+          const planejado = dadosPlanejados[sku];
+          const atualBipado = contagemAtual[sku] || 0;
+
+          const multiplicador = (sku.includes('prendedor menina') || sku.includes('prendedor menino')) ? 5 : 1;
+          const atualReal = atualBipado * multiplicador;
+
+          resumoHTML += `<li><strong>${sku}</strong>: ${atualReal}/${planejado}</li>`;
+        });
+      }
+
+      resumoHTML += "</ul>";
+      resumoDiv.innerHTML = resumoHTML;
+    }
+
+    document.getElementById("inputSKU").addEventListener("keypress", async function (e) {
+      if (e.key === "Enter" && leituraHabilitada) {
+        const input = e.target;
+        const sku = input.value.trim().toLowerCase();
+        const quiosque = document.getElementById("quiosqueSelect").value || document.getElementById("quiosqueSelect").options[0]?.value;
+
+        input.value = "";
+
+        try {
+          const res = await fetch('/bipar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sku, quiosque })
+          });
+
+          const data = await res.json();
+          if (data.status === 'ok' && data.atual) {
+            contagemAtual = data.atual;
+            beepSound.play();
+          } else {
+            erroSound.play();
+          }
+
+          document.getElementById("mensagem").innerText = data.mensagem;
+          document.getElementById("mensagem").className = data.status === 'ok' ? 'ok' : 'erro';
+          atualizarResumo();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    });
+
+    async function enviarRelatorio() {
+      const separador = document.getElementById("separadorInput").value.trim();
+      const quiosque = document.getElementById("quiosqueSelect").value || document.getElementById("quiosqueSelect").options[0]?.value;
+
+      if (!separador || !quiosque) {
+        alert("Preencha o separador e selecione o quiosque.");
+        return;
+      }
+
+      try {
+        const tipo = 'reposicao'; // ou pegue dinamicamente conforme seu fluxo
+
+        const res = await fetch('/relatorios/salvar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dados: contagemAtual, separador, quiosque, tipo })
+        });
+
+        const data = await res.json();
+        alert(data.mensagem || "Relatório enviado com sucesso.");
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao enviar relatório.");
+      }
+    }
+
+    window.onload = carregarQuiosqueDaSessao;
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+Abertura de Caixa
+Quiosque: Analia Franco
+Valor Inicial: R$ 700,00
+Data: 29/06/2025, 02:34:45
+
+
+Fechamento de Caixa
+
+Vendas por Forma de Pagamento:
+- Dinheiro: R$ 749,97
+- Pix: R$ 0,00
+- Cartão: R$ 0,00
+Sangrias: R$ 0,00
+
+Total vendido em dinheiro no dia: R$ 749,97
+
+SALDO ATUAL NO CAIXA: R$ 749,97
+
+Fechamento de Caixa
+
+Vendas por Forma de Pagamento:
+- Dinheiro: R$ 0,00
+- Pix: R$ 0,00
+- Cartão: R$ 0,00
+Sangrias: R$ 0,00
+
+Total vendido em dinheiro no dia: R$ 0,00
+
+SALDO ATUAL NO CAIXA: R$ 749,97

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>QRize - Painel</title>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen font-sans">
+
+  <!-- HEADER -->
+  <%- include('partials/header') %>
+
+
+  <!-- OFFSET PARA HEADER FIXO -->
+  <div class="h-16"></div>
+
+  <!-- CONTEÚDO CENTRALIZADO -->
+  <main class="flex-grow px-4 py-10 bg-gradient-to-br from-slate-100 to-slate-200">
+  <section class="max-w-6xl mx-auto flex flex-col items-center text-center">
+
+    <% if (user.nivel === 'deus') { %>
+      <h1 class="text-4xl font-bold text-slate-800 mb-10">Bem-vindo, Dado!</h1>
+    <% } %>
+
+    <div class="bg-white/90 backdrop-blur shadow-xl rounded-2xl p-8 w-full">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <% if (user.nivel === 'repositor') { %>
+          <a href="/reposicao" class="btn-dashboard">Reposição</a>
+        <% } else { %>
+          <a href="/reposicao" class="btn-dashboard">Reposição</a>
+          <a href="/vendas" class="btn-dashboard">Vendas</a>
+          <a href="/estoque" class="btn-dashboard">Estoque</a>
+          <a href="/sangria" class="btn-dashboard">Sangria</a>
+          <a href="/conferencia" class="btn-dashboard">Conferência</a>
+
+          <% if (user.admin) { %>
+            <a href="/cadastrar-sku" class="btn-dashboard">SKU</a>
+            <a href="/registro" class="btn-dashboard">Registro</a>
+            <a href="/quiosque" class="btn-dashboard">Quiosque</a>
+            <a href="/relatorios" class="btn-dashboard">Relatórios</a>
+            <a href="/historico" class="btn-dashboard">Histórico</a>
+            <a href="/precos" class="btn-dashboard">Preços</a>
+            <a href="/gerenciar-usuarios" class="btn-dashboard">Usuários</a>
+            <a href="/ajustar-caixa" class="btn-dashboard">Caixa</a>
+          <% } %>
+        <% } %>
+      </div>
+
+      <% if (!user.admin) { %>
+        <div id="caixaInfo" class="text-lg font-semibold text-gray-800 mt-10"></div>
+        <div id="abrirCaixaContainer" class="mt-4 space-y-3"></div>
+      <% } %>
+    </div>
+
+  </section>
+</main>
+
+  <%- include('partials/footer') %>
+
+
+
+  <!-- SCRIPT DO CAIXA -->
+  <script>
+    async function carregarCaixa() {
+      try {
+        const resUser = await fetch('/meu-quiosque', { credentials: 'same-origin' });
+        if (!resUser.ok) return location.href = '/login';
+
+        const { quiosque } = await resUser.json();
+        const [resCaixa, resStatus] = await Promise.all([
+          fetch(`/api/caixa/${encodeURIComponent(quiosque)}`),
+          fetch(`/api/caixa/status/${encodeURIComponent(quiosque)}`)
+        ]);
+
+        const dataCaixa = await resCaixa.json();
+        const dataStatus = await resStatus.json();
+
+        const caixaInfo = document.getElementById('caixaInfo');
+        const abrirCaixaContainer = document.getElementById('abrirCaixaContainer');
+        const totalNumero = Number(dataCaixa.total) || 0;
+        const statusTexto = dataStatus.aberto ? '🟢 Aberto' : '🔴 Fechado';
+
+        caixaInfo.innerHTML = `
+          <div><strong>${quiosque}</strong>: R$ ${totalNumero.toFixed(2).replace('.', ',')}</div>
+          <div class="text-gray-600 mt-1">Status do Caixa: ${statusTexto}</div>
+        `;
+
+        abrirCaixaContainer.innerHTML = '';
+
+        if (!dataStatus.aberto) {
+          abrirCaixaContainer.innerHTML = `
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+              <input type="number" id="valorInicial" placeholder="Valor inicial"
+                step="0.01" min="0"
+                class="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
+              />
+              <button id="btnAbrirCaixa"
+                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md shadow">
+                Abrir Caixa
+              </button>
+            </div>
+            <div id="msgAbrirCaixa" class="text-sm mt-2 text-red-600 text-center"></div>
+          `;
+
+          document.getElementById('btnAbrirCaixa').addEventListener('click', async () => {
+            const valor = parseFloat(document.getElementById('valorInicial').value);
+            const msgDiv = document.getElementById('msgAbrirCaixa');
+            msgDiv.textContent = '';
+            msgDiv.classList.remove('text-green-600');
+            msgDiv.classList.add('text-red-600');
+
+            if (isNaN(valor) || valor < 0) {
+              msgDiv.textContent = 'Informe um valor inicial válido (>= 0).';
+              return;
+            }
+
+            try {
+              const resposta = await fetch('/api/caixa/abrir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quiosque, valor_inicial: valor }),
+              });
+
+              const resultado = await resposta.json();
+
+              if (resposta.ok) {
+                msgDiv.classList.remove('text-red-600');
+                msgDiv.classList.add('text-green-600');
+                msgDiv.textContent = 'Caixa aberto com sucesso!';
+                setTimeout(() => location.reload(), 1500);
+              } else {
+                msgDiv.textContent = 'Erro: ' + (resultado.erro || 'Erro desconhecido');
+              }
+            } catch (error) {
+              msgDiv.textContent = 'Erro: ' + error.message;
+            }
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        document.getElementById('caixaInfo').innerText = 'Erro ao carregar caixa.';
+      }
+    }
+
+    window.addEventListener('load', carregarCaixa);
+  </script>
+
+  <!-- BOTÃO ESTILO -->
+  <style>
+    .btn-dashboard {
+      @apply bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg shadow transition-all duration-200 text-center;
+    }
+  </style>
+
+
+</body>
+</html>
