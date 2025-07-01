@@ -7,6 +7,8 @@ const rateLimit = require('express-rate-limit');
 const resHelper = require('./helpers/res');
 const estoqueRoutes = require('./routes/estoqueRoutes');
 const skuRoutes = require('./routes/skuRoutes');
+const ipRangeCheck = require('ip-range-check');
+
 
 
 const app = express();
@@ -40,6 +42,22 @@ const loginLimiter = rateLimit({
   message: { status: 'erro', mensagem: 'Muitas tentativas de login. Tente novamente em alguns minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+});
+
+const allowedRanges = ['100.64.0.0/10']; // faixa IPs da Tailscale
+
+app.use((req, res, next) => {
+  let clientIp = req.ip;
+  if (clientIp.startsWith('::ffff:')) {
+    clientIp = clientIp.replace('::ffff:', '');
+  }
+  console.log('IP do cliente:', clientIp);
+  
+  if (ipRangeCheck(clientIp, allowedRanges)) {
+    return next();
+  }
+  
+  res.status(403).send(`Acesso permitido somente via VPN. Seu IP: ${clientIp}`);
 });
 
 app.use('/login', loginLimiter);
