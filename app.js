@@ -7,8 +7,6 @@ const rateLimit = require('express-rate-limit');
 const resHelper = require('./helpers/res');
 const estoqueRoutes = require('./routes/estoqueRoutes');
 const skuRoutes = require('./routes/skuRoutes');
-const ipRangeCheck = require('ip-range-check');
-
 
 
 const app = express();
