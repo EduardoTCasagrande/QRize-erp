@@ -1,0 +1,12 @@
+RELATÓRIO DE CONFERÊNCIA DE ESTOQUE
+Quiosque: Mogi das Cruzes
+Contador(a): a
+Data: 01/07/2025, 09:49:37
+
+SKU                           Contado   Anterior  Observação
+-----------------------------------------------------------------
+livia                         1         6         ✓ Atualizado ▼ Diminuiu
+arthur                        -         1         ⏸️ Não bipado
+abigail                       -         2         ⏸️ Não bipado
+maite                         -         6         ⏸️ Não bipado
+sissi cast                    -         5         ⏸️ Não bipado

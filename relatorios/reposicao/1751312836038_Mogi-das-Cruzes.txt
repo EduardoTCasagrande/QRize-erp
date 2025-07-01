@@ -1,0 +1,4 @@
+Separador: edu
+Quiosque: Mogi das Cruzes
+
+livia	2

@@ -1,40 +1,57 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="transition-colors duration-300">
 <head>
   <meta charset="UTF-8" />
-  <title>Registrar Sangria</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            lightbg: '#f9fafb',
+            darkbg: '#1f2937',
+            lighttext: '#111827',
+            darktext: '#f3f4f6',
+            primary: '#2563eb',
+            danger: '#dc2626',
+          }
+        }
+      }
+    }
+  </script>
+  <title>QRize - Painel</title>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
-
+<body class="bg-lightbg dark:bg-darkbg text-lighttext dark:text-darktext flex flex-col min-h-screen font-sans transition-colors duration-300">
   <%- include('partials/header') %>
 
   <main class="flex-grow container mx-auto p-6">
     <div class="flex flex-col md:flex-row md:space-x-6 space-y-6 md:space-y-0">
 
       <!-- Box do formulário -->
-      <div class="bg-white rounded shadow p-6 flex-1">
+      <div class="bg-white dark:bg-gray-800 rounded shadow p-6 flex-1">
         <h2 class="text-xl font-semibold mb-4">Registrar Sangria</h2>
 
         <% if (user.admin == 1) { %>
           <div id="seletorAdmin" class="mb-4">
             <label for="quiosqueSelect" class="block font-medium mb-1">Selecionar Quiosque:</label>
-            <select id="quiosqueSelect" class="w-full border border-gray-300 rounded px-3 py-2"></select>
+            <select id="quiosqueSelect" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2"></select>
           </div>
         <% } %>
 
         <form id="formSangria" class="space-y-4">
           <div>
             <label class="block font-medium mb-1">Valor da sangria:</label>
-            <input type="number" step="0.01" name="valor" required class="w-full border border-gray-300 rounded px-3 py-2" />
+            <input type="number" step="0.01" name="valor" required class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2" />
           </div>
 
           <div>
             <label class="block font-medium mb-1">Motivo (opcional):</label>
-            <textarea name="motivo" rows="3" class="w-full border border-gray-300 rounded px-3 py-2"></textarea>
+            <textarea name="motivo" rows="3" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2"></textarea>
           </div>
 
-          <button type="submit" class="w-full bg-red-600 text-white py-2 rounded hover:bg-red-700 transition">
+          <button type="submit" class="w-full bg-danger text-white py-2 rounded hover:bg-red-700 transition">
             Registrar
           </button>
         </form>
@@ -43,15 +60,15 @@
       </div>
 
       <!-- Box do histórico -->
-      <div class="bg-white rounded shadow p-6 flex-1 overflow-auto max-h-[500px]">
+      <div class="bg-white dark:bg-gray-800 rounded shadow p-6 flex-1 overflow-auto max-h-[500px]">
         <div id="historicoCaixa" class="mb-6">
           <!-- Histórico será carregado aqui -->
         </div>
 
-        <hr class="my-4" />
+        <hr class="my-4 border-gray-300 dark:border-gray-600" />
 
         <h3 class="text-lg font-semibold mb-3">Relatório do Dia</h3>
-        <button id="gerarRelatorio" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition mb-4">
+        <button id="gerarRelatorio" class="w-full bg-primary text-white py-2 rounded hover:bg-blue-700 transition mb-4">
           Gerar Relatório do Dia
         </button>
         <div id="linkRelatorio" class="text-center font-medium"></div>
@@ -59,6 +76,7 @@
 
     </div>
   </main>
+
 
   <%- include('partials/footer') %>
 
@@ -244,6 +262,7 @@
       }
     });
   </script>
+  <script src="/js/darkmode.js"></script>
 
 </body>
 </html>

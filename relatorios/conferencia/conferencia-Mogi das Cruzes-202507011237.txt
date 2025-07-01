@@ -1,0 +1,12 @@
+RELATÓRIO DE CONFERÊNCIA DE ESTOQUE
+Quiosque ID: Mogi das Cruzes
+Contador(a): Leticia
+Data: 01/07/2025, 09:37:05
+
+SKU                           Contado   Anterior  Observação
+-----------------------------------------------------------------
+livia                         -         6         ⏸️ Não bipado
+arthur                        -         1         ⏸️ Não bipado
+abigail                       -         2         ⏸️ Não bipado
+maite                         3         -         ➕ Novo SKU
+sissi cast                    4         -         ➕ Novo SKU

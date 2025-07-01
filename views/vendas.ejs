@@ -1,11 +1,17 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="scroll-smooth">
+<html lang="pt-BR" class="transition-colors duration-300">
 <head>
   <meta charset="UTF-8" />
-  <title>Vendas - Controle de Estoque</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QRize - Painel</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    };
+  </script>
 </head>
-<body class="vendas-page bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen font-sans transition-colors duration-300">
 
   <%- include('partials/header') %>
 
@@ -14,41 +20,39 @@
 
     <div class="mb-6 flex items-center gap-3">
       <label for="quiosqueSelect" class="font-semibold">Quiosque:</label>
-      <select id="quiosqueSelect" disabled class="border border-gray-300 rounded px-3 py-1 bg-gray-100 cursor-not-allowed">
+      <select id="quiosqueSelect" disabled class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-1 bg-gray-100 cursor-not-allowed transition">
         <option value="">Carregando...</option>
       </select>
     </div>
 
     <div class="flex flex-col md:flex-row gap-6">
       <!-- Box 1: SKU -->
-      <section class="flex-1 bg-white rounded-lg shadow p-6">
+      <section class="flex-1 bg-white dark:bg-gray-800/90 backdrop-blur rounded-lg shadow p-6 transition-colors">
         <label for="inputSKU" class="block font-semibold mb-2">SKU:</label>
         <input 
           type="text" 
           id="inputSKU" 
           placeholder="Bipe ou digite SKU" 
           autofocus 
-          class="w-full border border-gray-300 rounded px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
         />
         <div id="mensagem" class="mb-3 min-h-[1.5rem] font-semibold"></div>
-        <ul id="listaVendas" class="max-h-72 overflow-y-auto divide-y divide-gray-200">
+        <ul id="listaVendas" class="max-h-72 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-600">
           <!-- itens da venda aqui -->
         </ul>
       </section>
 
       <!-- Box 2: Pagamento -->
-      <section class="flex-1 bg-white rounded-lg shadow p-6 flex flex-col">
+      <section class="flex-1 bg-white dark:bg-gray-800/90 backdrop-blur rounded-lg shadow p-6 flex flex-col transition-colors">
         <h3 class="text-xl font-semibold mb-4">Formas de Pagamento</h3>
 
-        <div id="pagamentos" class="flex flex-col gap-3 mb-4">
-
-        </div>
+        <div id="pagamentos" class="flex flex-col gap-3 mb-4"></div>
 
         <div class="flex flex-wrap items-center gap-4 mb-4">
           <button 
             type="button" 
             id="adicionarPagamento" 
-            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 text-white px-4 py-2 rounded transition"
           >
             + Forma de Pagamento
           </button>
@@ -60,7 +64,7 @@
             placeholder="Ex: 10.00" 
             step="0.01" 
             min="0" 
-            class="border border-gray-300 rounded px-3 py-2 w-32"
+            class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 w-32 transition"
           />
         </div>
 
@@ -68,12 +72,12 @@
           type="text" 
           id="operador" 
           placeholder="Nome do vendedor" 
-          class="border border-gray-300 rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
         />
 
         <button 
           id="finalizarVenda" 
-          class="bg-green-600 hover:bg-green-700 text-white py-3 rounded font-semibold text-lg"
+          class="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-400 text-white py-3 rounded font-semibold text-lg transition"
         >
           Finalizar Venda
         </button>
@@ -84,7 +88,7 @@
   </main>
 
   <%- include('partials/footer') %>
-  
+
   <script>
     const inputSKU = document.getElementById("inputSKU");
     const quiosqueSelect = document.getElementById("quiosqueSelect");
@@ -106,8 +110,8 @@
       const data = await res.json();
       quiosqueSelect.innerHTML = '';
       const opt = document.createElement('option');
-      opt.value = data.quiosque;
-      opt.textContent = data.quiosque;
+      opt.value = data.quiosque_id || data.quiosque || '';
+      opt.textContent = data.nome_quiosque || data.quiosque || 'Quiosque';
       quiosqueSelect.appendChild(opt);
       quiosqueSelect.disabled = true;
     }
@@ -164,28 +168,14 @@
         li.className = "flex items-center gap-4 py-2";
 
         li.innerHTML = `
-          <button
-            class="text-red-600 hover:text-red-800 text-lg"
-            aria-label="Remover ${sku}"
-            onclick="removerSKU('${sku}')"
-          >
-            ❌
-          </button>
-          <img
-            src="${info.foto || '/imagens/skus/sem-foto.jpg'}"
-            alt="${sku}"
-            class="w-16 h-16 object-contain rounded"
-          />
+          <button class="text-red-600 hover:text-red-800 text-lg" onclick="removerSKU('${sku}')">❌</button>
+          <img src="${info.foto || '/imagens/skus/sem-foto.jpg'}" alt="${sku}" class="w-16 h-16 object-contain rounded" />
           <div class="flex-1 flex flex-col justify-center">
-            <span class="font-semibold text-gray-900">${sku}</span>
-            <span class="text-gray-600">Qtd: ${qtd}</span>
-            <span class="text-gray-800 font-medium">Total: ${formatarReal(precoUnit * qtd)}</span>
+            <span class="font-semibold">${sku}</span>
+            <span>Qtd: ${qtd}</span>
+            <span>Total: ${formatarReal(precoUnit * qtd)}</span>
           </div>
-          <button
-            class="text-green-600 hover:text-green-800 text-xl"
-            aria-label="Marcar promocional ${sku}"
-            onclick="marcarPromocional('${sku}')"
-          >
+          <button class="text-green-600 hover:text-green-800 text-xl" onclick="marcarPromocional('${sku}')">
             ${itensPromocionais[sku] ? '✅' : '⚪'}
           </button>
         `;
@@ -204,18 +194,17 @@
     inputSKU.addEventListener("keypress", (e) => {
       if (e.key === "Enter") {
         const sku = inputSKU.value.trim().toLowerCase();
-        const quiosque = quiosqueSelect.value;
         inputSKU.value = "";
 
         if (!precos[sku]) {
           mensagem.textContent = `SKU '${sku}' não encontrado.`;
-          mensagem.className = "erro";
+          mensagem.className = "text-red-600";
           return;
         }
 
         vendaAtual[sku] = (vendaAtual[sku] || 0) + 1;
         mensagem.textContent = `SKU '${sku}' registrado.`;
-        mensagem.className = "ok";
+        mensagem.className = "text-green-600";
         atualizarListaVendas();
       }
     });
@@ -226,12 +215,12 @@
       const div = document.createElement('div');
       div.className = 'pagamento flex gap-2 items-center';
       div.innerHTML = `
-        <select class="forma border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <select class="forma border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 transition">
           <option value="dinheiro">Dinheiro</option>
           <option value="pix">Pix</option>
           <option value="cartao">Cartão</option>
         </select>
-        <input type="number" class="valor border border-gray-300 rounded px-3 py-2 w-full" placeholder="Valor (R$)" min="0" step="0.01" />
+        <input type="number" class="valor border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 w-full" placeholder="Valor (R$)" min="0" step="0.01" />
         <button type="button" class="remover bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded">Remover</button>
       `;
       div.querySelector('.remover').addEventListener('click', () => div.remove());
@@ -274,39 +263,39 @@
     }
 
     finalizarVenda.addEventListener("click", async () => {
-      const quiosque = quiosqueSelect.value;
+      const quiosque_id = quiosqueSelect.value;
       const desconto = parseFloat(descontoInput.value) || 0;
       const pagamentos = coletarPagamentos();
       const somaPagamentos = pagamentos.reduce((acc, p) => acc + p.valor, 0);
       const operador = document.getElementById("operador").value.trim();
 
-      if (!quiosque || Object.keys(vendaAtual).length === 0) {
+      if (!quiosque_id || Object.keys(vendaAtual).length === 0) {
         mensagem.textContent = "Bipe ao menos 1 item.";
-        mensagem.className = "erro";
+        mensagem.className = "text-red-600";
         return;
       }
 
       if (pagamentos.length === 0) {
         mensagem.textContent = "Adicione ao menos uma forma de pagamento.";
-        mensagem.className = "erro";
+        mensagem.className = "text-red-600";
         return;
       }
 
       if (Math.abs(somaPagamentos - total) > 0.01) {
         mensagem.textContent = `Pagamentos (${formatarReal(somaPagamentos)}) ≠ Total (${formatarReal(total)})`;
-        mensagem.className = "erro";
+        mensagem.className = "text-red-600";
         return;
       }
 
       const res = await fetch('/vender', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quiosque, venda: vendaAtual, pagamentos, total, desconto, operador, itensPromocionais })
+        body: JSON.stringify({ quiosque_id, venda: vendaAtual, pagamentos, total, desconto, operador, itensPromocionais })
       });
 
       const data = await res.json();
       mensagem.textContent = data.mensagem || "Venda finalizada.";
-      mensagem.className = data.status === "ok" ? "ok" : "erro";
+      mensagem.className = data.status === "ok" ? "text-green-600" : "text-red-600";
 
       if (data.status === "ok") {
         vendaAtual = {};
@@ -326,8 +315,11 @@
     window.onload = async () => {
       await carregarQuiosqueUsuario();
       await carregarPrecos();
-      adicionarPagamentoBtn.click(); // já inicia com 1 forma de pagamento
+      adicionarPagamentoBtn.click();
     };
   </script>
+
+  <script src="/js/darkmode.js"></script>
+
 </body>
 </html>

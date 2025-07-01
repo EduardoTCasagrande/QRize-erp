@@ -1,0 +1,4 @@
+Separador: a
+Quiosque: Mogi das Cruzes
+
+abigail	1

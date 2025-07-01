@@ -1,158 +1,139 @@
-const db = require('../models/db');
+const db = require('../models/postgres'); // seu pool pg com método query async
 const path = require('path');
 const fs = require('fs');
 
 exports.vendasPage = (req, res) => {
-  if (!req.session.user) {
-    return res.redirect('/');
-  }
+  if (!req.session.user) return res.redirect('/');
   res.render('vendas');
 };
 
-exports.vender = (req, res) => {
-  const { quiosque, venda, pagamentos, total, desconto, operador, itensPromocionais } = req.body;
+exports.vender = async (req, res) => {
+  const {
+    quiosque_id, // ALTERAÇÃO: espera-se que o front envie o id aqui
+    venda,
+    pagamentos,
+    total,
+    desconto,
+    operador,
+    itensPromocionais
+  } = req.body;
 
-  if (!quiosque || !venda || typeof venda !== 'object' || !Array.isArray(pagamentos) || typeof total !== 'number') {
-    return res.status(400).json({
-      status: 'erro',
-      mensagem: 'Dados da venda inválidos.'
-    });
+  if (
+    !quiosque_id ||
+    !venda ||
+    typeof venda !== 'object' ||
+    !Array.isArray(pagamentos) ||
+    typeof total !== 'number'
+  ) {
+    return res.status(400).json({ status: 'erro', mensagem: 'Dados da venda inválidos.' });
   }
 
-  db.get(`SELECT MAX(id_venda) as ultimo FROM historico_transacoes`, (err, row) => {
-    if (err) {
-      console.error('Erro ao buscar último id_venda:', err.message);
-      return res.status(500).json({ status: 'erro', mensagem: 'Erro interno ao gerar ID de venda.' });
+  try {
+    const ultimoResult = await db.query('SELECT MAX(id_venda) as ultimo FROM historico_transacoes');
+    const idVendaAtual = (ultimoResult.rows[0].ultimo || 0) + 1;
+
+    const skus = Object.entries(venda).filter(([sku, qtd]) => sku && qtd && qtd > 0);
+    const vendaDetalhada = [];
+
+    await db.query('BEGIN');
+
+    for (const [sku, quantidade] of skus) {
+      const precoResult = await db.query('SELECT preco FROM precos WHERE sku = $1', [sku]);
+      let precoUnitario = precoResult.rows[0] ? precoResult.rows[0].preco : 0;
+
+      if (itensPromocionais && itensPromocionais[sku]) {
+        precoUnitario = 0.01;
+      }
+
+      const valorTotalItem = precoUnitario * quantidade;
+      vendaDetalhada.push({ sku, quantidade, precoUnitario, valorTotalItem });
+
+      // Atualiza estoque (subtrai quantidade)
+      await db.query(`
+        INSERT INTO estoque_quiosque (quiosque, sku, quantidade)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (quiosque, sku)
+        DO UPDATE SET quantidade = estoque_quiosque.quantidade - EXCLUDED.quantidade
+      `, [quiosque_id, sku, quantidade]);
+
+      // Insere no histórico de transações
+      await db.query(`
+        INSERT INTO historico_transacoes (id_venda, tipo, quiosque_id, sku, quantidade, valor, operador)
+        VALUES ($1, 'venda', $2, $3, $4, $5, $6)
+      `, [idVendaAtual, quiosque_id, sku, quantidade, valorTotalItem, operador || 'desconhecido']);
     }
 
-    const idVendaAtual = (row.ultimo || 0) + 1;
-    salvarItensDaVenda(idVendaAtual);
-  });
+    // Registrar pagamentos no caixa
+    const agora = new Date().toISOString();
+    for (const { forma, valor } of pagamentos) {
+      await db.query(`
+        INSERT INTO caixa_movimentos (quiosque_id, valor, forma_pagamento, data)
+        VALUES ($1, $2, $3, $4)
+      `, [quiosque_id, valor, forma.toLowerCase(), agora]);
+    }
 
-  function salvarItensDaVenda(idVendaAtual) {
-    const stmt = db.prepare(`
-      INSERT INTO estoque_quiosque (quiosque, sku, quantidade)
-      VALUES (?, ?, ?)
-      ON CONFLICT(quiosque, sku)
-      DO UPDATE SET quantidade = quantidade - ?
-    `);
+    await db.query('COMMIT');
 
-    const historicoStmt = db.prepare(`
-      INSERT INTO historico_transacoes (id_venda, tipo, quiosque, sku, quantidade, valor, operador)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+    // Gerar cupom ESC
+    const nomeArquivo = gerarCupomESC(quiosque_id, vendaDetalhada, total, desconto, pagamentos, operador, idVendaAtual);
 
-    const getPreco = db.prepare(`SELECT preco FROM precos WHERE sku = ?`);
-
-    const skus = Object.entries(venda).filter(([sku, quantidade]) => sku && quantidade && quantidade > 0);
-    let pendentes = skus.length;
-    let vendaDetalhada = [];
-
-    skus.forEach(([sku, quantidade]) => {
-      getPreco.get([sku], (err, row) => {
-        let precoUnitario = row ? row.preco : 0;
-
-        // Se o SKU estiver marcado como promocional, vender por R$ 0,01
-        if (itensPromocionais && itensPromocionais[sku]) {
-          precoUnitario = 0.01;
-        }
-
-        const valorTotalItem = precoUnitario * quantidade;
-
-        vendaDetalhada.push({ sku, quantidade, precoUnitario, valorTotalItem });
-
-        stmt.run([quiosque, sku, quantidade * -1, quantidade], (err) => {
-          if (err) console.error("Erro ao atualizar estoque:", err.message);
-        });
-
-        historicoStmt.run([idVendaAtual, 'venda', quiosque, sku, quantidade, valorTotalItem, operador || 'desconhecido'], (err) => {
-          if (err) console.error("Erro ao salvar no histórico:", err.message);
-        });
-
-        pendentes--;
-        if (pendentes === 0) finalizar();
-      });
+    res.json({
+      status: 'ok',
+      mensagem: `Venda #${idVendaAtual} finalizada com sucesso.`,
+      id_venda: idVendaAtual,
+      cupomUrl: `/cupons/${nomeArquivo}`
     });
-
-    function finalizar() {
-      stmt.finalize();
-      historicoStmt.finalize();
-      getPreco.finalize();
-
-      const agora = new Date().toLocaleString('sv-SE').replace(' ', ' '); // formato: 'YYYY-MM-DD HH:MM:SS'
-
-      const caixaStmt = db.prepare(`
-        INSERT INTO caixa_movimentos (quiosque, valor, forma_pagamento, data)
-        VALUES (?, ?, ?, ?)
-      `);
-
-      pagamentos.forEach(({ forma, valor }) => {
-        caixaStmt.run([quiosque, valor, forma.toLowerCase(), agora], (err) => {
-          if (err) console.error(`Erro ao registrar no caixa (forma: ${forma}):`, err.message);
-        });
-      });
-
-
-      caixaStmt.finalize();
-
-      const nomeArquivo = gerarCupomESC(quiosque, vendaDetalhada, total, desconto, pagamentos, operador, idVendaAtual);
-
-      res.json({
-        status: 'ok',
-        mensagem: `Venda #${idVendaAtual} finalizada com sucesso.`,
-        id_venda: idVendaAtual,
-        cupomUrl: `/cupons/${nomeArquivo}`
-      });
-    }
-  }
-
-  function gerarCupomESC(quiosque, itens, total, desconto, pagamentos, operador, idVendaAtual) {
-    const cuponsDir = path.join(__dirname, '../cupons');
-    if (!fs.existsSync(cuponsDir)) {
-      fs.mkdirSync(cuponsDir);
-    }
-
-    const data = new Date();
-    const nomeArquivo = `cupom_${quiosque}_${data.getTime()}.esc`;
-    const filePath = path.join(cuponsDir, nomeArquivo);
-
-    let conteudo = '';
-    conteudo += '*** CUPOM PDV ***\n';
-    conteudo += `Venda Nº: ${idVendaAtual}\n`;
-    conteudo += `Quiosque: ${quiosque}\n`;
-    conteudo += `Data: ${data.toLocaleString()}\n`;
-    conteudo += `Operador: ${operador || 'desconhecido'}\n\n`;
-
-    itens.forEach(item => {
-      conteudo += `SKU: ${item.sku} | Qtd: ${item.quantidade} | R$: ${item.precoUnitario.toFixed(2)}\n`;
-    });
-
-    conteudo += `\nTotal: R$ ${total.toFixed(2)}\n`;
-    if (desconto && desconto > 0) {
-      conteudo += `Desconto: R$ ${desconto.toFixed(2)}\n`;
-    }
-
-    conteudo += '\nPagamentos:\n';
-    pagamentos.forEach(p => {
-      conteudo += `- ${p.forma}: R$ ${p.valor.toFixed(2)}\n`;
-    });
-
-    conteudo += '\nObrigado pela preferência!\n';
-
-    fs.writeFileSync(filePath, conteudo, 'utf8');
-    return nomeArquivo;
+  } catch (err) {
+    await db.query('ROLLBACK');
+    console.error('Erro ao processar venda:', err);
+    res.status(500).json({ status: 'erro', mensagem: 'Erro interno ao processar venda.' });
   }
 };
 
-exports.renderHistoricoPage = (req, res) => {
-  if (!req.session.user) {
-    return res.redirect('/');
+function gerarCupomESC(quiosque_id, itens, total, desconto, pagamentos, operador, idVendaAtual) {
+  const cuponsDir = path.join(__dirname, '../cupons');
+  if (!fs.existsSync(cuponsDir)) {
+    fs.mkdirSync(cuponsDir);
   }
+
+  const data = new Date();
+  const nomeArquivo = `cupom_${quiosque_id}_${data.getTime()}.esc`;
+  const filePath = path.join(cuponsDir, nomeArquivo);
+
+  let conteudo = '';
+  conteudo += '*** CUPOM PDV ***\n';
+  conteudo += `Venda Nº: ${idVendaAtual}\n`;
+  conteudo += `Quiosque ID: ${quiosque_id}\n`;
+  conteudo += `Data: ${data.toLocaleString()}\n`;
+  conteudo += `Operador: ${operador || 'desconhecido'}\n\n`;
+
+  itens.forEach(item => {
+    conteudo += `SKU: ${item.sku} | Qtd: ${item.quantidade} | R$: ${item.precoUnitario.toFixed(2)}\n`;
+  });
+
+  conteudo += `\nTotal: R$ ${total.toFixed(2)}\n`;
+  if (desconto && desconto > 0) {
+    conteudo += `Desconto: R$ ${desconto.toFixed(2)}\n`;
+  }
+
+  conteudo += '\nPagamentos:\n';
+  pagamentos.forEach(p => {
+    conteudo += `- ${p.forma}: R$ ${p.valor.toFixed(2)}\n`;
+  });
+
+  conteudo += '\nObrigado pela preferência!\n';
+
+  fs.writeFileSync(filePath, conteudo, 'utf8');
+  return nomeArquivo;
+}
+
+exports.renderHistoricoPage = (req, res) => {
+  if (!req.session.user) return res.redirect('/');
   res.render('historico');
 };
 
-exports.historico = (req, res) => {
-  const { data_inicio, data_fim, quiosque } = req.query;
+exports.historico = async (req, res) => {
+  const { data_inicio, data_fim, quiosque_id } = req.query;
 
   if (!data_inicio || !data_fim) {
     return res.status(400).json({
@@ -161,32 +142,26 @@ exports.historico = (req, res) => {
     });
   }
 
-  let sql = `
-    SELECT id_venda, tipo, quiosque, sku, quantidade, valor, operador, data
-    FROM historico_transacoes
-    WHERE tipo = 'venda' AND date(data) BETWEEN date(?) AND date(?)
-  `;
-  const params = [data_inicio, data_fim];
+  try {
+    let sql = `
+      SELECT id_venda, tipo, quiosque_id, sku, quantidade, valor, operador, data
+      FROM historico_transacoes
+      WHERE tipo = 'venda' AND data::date BETWEEN $1 AND $2
+    `;
+    const params = [data_inicio, data_fim];
 
-  if (quiosque) {
-    sql += ' AND quiosque = ?';
-    params.push(quiosque);
-  }
-
-  sql += ' ORDER BY id_venda ASC, data ASC';
-
-  db.all(sql, params, (err, rows) => {
-    if (err) {
-      console.error('Erro ao consultar histórico:', err.message);
-      return res.status(500).json({
-        status: 'erro',
-        mensagem: 'Erro ao buscar histórico de vendas.'
-      });
+    if (quiosque_id) {
+      sql += ' AND quiosque_id = $3';
+      params.push(quiosque_id);
     }
 
-    res.json({
-      status: 'ok',
-      historico: rows
-    });
-  });
+    sql += ' ORDER BY id_venda ASC, data ASC';
+
+    const result = await db.query(sql, params);
+
+    res.json({ status: 'ok', historico: result.rows });
+  } catch (err) {
+    console.error('Erro ao consultar histórico:', err);
+    res.status(500).json({ status: 'erro', mensagem: 'Erro ao buscar histórico de vendas.' });
+  }
 };

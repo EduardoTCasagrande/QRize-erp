@@ -1,0 +1,17 @@
+
+Fechamento de Caixa
+
+Vendas por Forma de Pagamento:
+- Dinheiro: R$ 699,97
+- Pix: R$ 0,00
+- Cartão: R$ 0,00
+Sangrias: R$ 199,97
+
+Total vendido em dinheiro no dia: R$ 699,97
+
+SALDO ATUAL NO CAIXA: R$ 500,00
+Abertura de Caixa
+Quiosque ID: 1
+Valor Inicial: R$ 0,00
+Data: 01/07/2025, 08:35:35
+

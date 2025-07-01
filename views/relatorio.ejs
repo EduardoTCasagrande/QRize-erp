@@ -1,22 +1,28 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="transition-colors duration-300">
 <head>
   <meta charset="UTF-8" />
-  <title>Gerenciador de Relatórios</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+  <title>QRize - Painel</title>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen font-sans transition-colors duration-300">
 
   <%- include('partials/header') %>
 
   <main class="flex-grow container mx-auto p-6">
-    <div class="bg-white p-6 rounded shadow-md max-w-4xl mx-auto">
+    <div class="bg-white dark:bg-gray-800 p-6 rounded shadow-md max-w-4xl mx-auto">
       <h1 class="text-3xl font-semibold mb-6">Gerenciador de Relatórios</h1>
 
       <label for="tipo-select" class="block mb-2 font-medium">Selecione o tipo de relatório:</label>
       <select
         id="tipo-select"
-        class="border border-gray-300 rounded px-3 py-2 mb-6 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 mb-6 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <% const tipos = ['reposicao', 'fechamento', 'conferencia']; %>
         <% tipos.forEach(tipo => { %>
@@ -28,7 +34,7 @@
 
       <pre
         id="conteudo"
-        class="whitespace-pre-wrap border border-gray-300 rounded p-4 bg-gray-100 text-gray-800 min-h-[150px] overflow-auto"
+        class="whitespace-pre-wrap border border-gray-300 dark:border-gray-600 rounded p-4 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 min-h-[150px] overflow-auto"
       ></pre>
     </div>
   </main>
@@ -51,7 +57,7 @@
 
         arquivos.forEach(nome => {
           const li = document.createElement('li');
-          li.className = 'flex items-center justify-between bg-gray-100 rounded px-3 py-2';
+          li.className = 'flex items-center justify-between bg-gray-100 dark:bg-gray-700 rounded px-3 py-2';
 
           const nomeSpan = document.createElement('span');
           nomeSpan.textContent = nome;
@@ -73,9 +79,15 @@
           btnExcluir.className = 'bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition';
           btnExcluir.onclick = async () => {
             if (confirm(`Excluir o arquivo ${nome}?`)) {
-              await fetch(`/relatorios/excluir/${tipo}/${nome}`, { method: 'DELETE' });
-              carregarListaTipo(tipo);
-              conteudoEl.textContent = '';
+              const response = await fetch(`/relatorios/excluir/${tipo}/${nome}`, { method: 'DELETE' });
+              if (response.ok) {
+                carregarListaTipo(tipo);
+                conteudoEl.textContent = '';
+                alert('Arquivo excluído com sucesso.');
+              } else {
+                const data = await response.json();
+                alert('Erro ao excluir arquivo: ' + data.mensagem);
+              }
             }
           };
 
@@ -105,5 +117,7 @@
       carregarListaTipo(tipoSelect.value);
     });
   </script>
+
+  <script src="/js/darkmode.js"></script>
 </body>
 </html>

@@ -1,0 +1,4 @@
+Separador: d
+Quiosque: Mogi das Cruzes
+
+arthur	1

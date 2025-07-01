@@ -1,24 +1,21 @@
 const bcrypt = require('bcrypt');
-const path = require('path');
-const db = require('../models/db');
+const pool = require('../models/postgres'); // ajuste o caminho
 
 exports.loginPage = (req, res) => {
-  res.render('login')
+  res.render('login');
 };
 
 exports.dashboard = (req, res) => {
   if (!req.session.user) {
     return res.redirect('/');
   }
-
   res.render('dashboard', {
     user: req.session.user
   });
 };
 
-
 exports.registroPage = (req, res) => {
-  res.render('registro')
+  res.render('registro');
 };
 
 exports.registro = async (req, res) => {
@@ -29,35 +26,47 @@ exports.registro = async (req, res) => {
   }
 
   try {
+    // Busca o id do quiosque pelo nome
+    const resultQuiosque = await pool.query('SELECT id FROM quiosques WHERE nome = $1', [quiosque]);
+    if (resultQuiosque.rows.length === 0) {
+      return res.status(400).json({ status: 'erro', mensagem: 'Quiosque não encontrado.' });
+    }
+    const quiosque_id = resultQuiosque.rows[0].id;
+
     const hash = await bcrypt.hash(senha, 10);
 
-    db.run(`INSERT INTO usuarios (username, senha, quiosque) VALUES (?, ?, ?)`,
-      [username, hash, quiosque],
-      function (err) {
-        if (err) {
-          if (err.message.includes("UNIQUE")) {
-            return res.status(400).json({ status: 'erro', mensagem: 'Usuário já existe.' });
-          }
-          console.error("Erro ao registrar usuário:", err.message);
-          return res.status(500).json({ status: 'erro', mensagem: 'Erro interno ao registrar.' });
-        }
-        res.json({ status: 'ok', mensagem: 'Usuário registrado com sucesso!' });
-      });
+    const queryText = `
+      INSERT INTO usuarios (username, senha, quiosque_id) 
+      VALUES ($1, $2, $3)
+      RETURNING id
+    `;
 
+    await pool.query(queryText, [username, hash, quiosque_id]);
+
+    res.json({ status: 'ok', mensagem: 'Usuário registrado com sucesso!' });
   } catch (err) {
-    res.status(500).json({ status: 'erro', mensagem: 'Erro ao processar senha.' });
+    if (err.code === '23505') { // usuário já existe
+      return res.status(400).json({ status: 'erro', mensagem: 'Usuário já existe.' });
+    }
+    console.error('Erro ao registrar usuário:', err);
+    res.status(500).json({ status: 'erro', mensagem: 'Erro interno ao registrar.' });
   }
 };
 
-exports.login = (req, res) => {
+exports.login = async (req, res) => {
   const { username, senha } = req.body;
 
-  db.get('SELECT * FROM usuarios WHERE username = ?', [username], async (err, user) => {
-    if (err) return res.status(500).json({ status: 'erro', mensagem: 'Erro ao buscar usuário' });
+  try {
+    const queryText = `SELECT * FROM usuarios WHERE username = $1`;
+    const result = await pool.query(queryText, [username]);
 
-    if (!user) return res.status(401).json({ status: 'erro', mensagem: 'Usuário ou senha inválidos' });
+    if (result.rows.length === 0) {
+      return res.status(401).json({ status: 'erro', mensagem: 'Usuário ou senha inválidos' });
+    }
 
+    const user = result.rows[0];
     const senhaOk = await bcrypt.compare(senha, user.senha);
+
     if (!senhaOk) {
       return res.status(401).json({ status: 'erro', mensagem: 'Usuário ou senha inválidos' });
     }
@@ -65,36 +74,80 @@ exports.login = (req, res) => {
     req.session.user = {
       id: user.id,
       username: user.username,
-      admin: user.admin === 1,
-      quiosque: user.quiosque,
+      admin: user.admin === 1 || user.admin === true, // dependendo do tipo no banco
+      quiosque: user.quiosque_id,
       nivel: user.nivel
     };
 
     console.log('Valor de user.admin:', user.admin, 'Tipo:', typeof user.admin);
 
-
     res.json({ status: 'ok', mensagem: 'Login bem-sucedido' });
-  });
-};
-
-exports.sessionUser = (req, res) => {
-  if (!req.session || !req.session.user) {
-    return res.status(401).json({ erro: 'Sessão expirada' });
+  } catch (err) {
+    console.error('Erro no login:', err);
+    res.status(500).json({ status: 'erro', mensagem: 'Erro interno ao fazer login' });
   }
-  res.json({
-    quiosque: req.session.user.quiosque,
-    username: req.session.user.username,
-    admin: req.session.user.admin,
-    nivel: req.session.user.nivel
-  });
+};
+
+exports.sessionUser = async (req, res) => {
+  const userSession = req.session.user;
+  if (!userSession) return res.json({});
+
+  const quiosqueId = userSession.quiosque; // esse é o ID (int)
+
+  try {
+    const result = await pool.query('SELECT nome FROM quiosques WHERE id = $1', [quiosqueId]);
+
+    const nomeQuiosque = result.rows.length > 0 ? result.rows[0].nome : null;
+
+    res.json({
+      username: userSession.username,
+      admin: userSession.admin,
+      nivel: userSession.nivel,
+      quiosque_id: quiosqueId,        // <-- Adiciona aqui o ID
+      quiosque: nomeQuiosque          // <-- Nome amigável
+    });
+  } catch (err) {
+    console.error('Erro ao buscar nome do quiosque:', err);
+    res.json({
+      username: userSession.username,
+      admin: userSession.admin,
+      nivel: userSession.nivel,
+      quiosque_id: quiosqueId,        // <-- Mesmo no erro, ainda retorna
+      quiosque: null
+    });
+  }
 };
 
 
-exports.meuQuiosque = (req, res) => {
+
+exports.meuQuiosque = async (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ erro: 'Não autenticado' });
   }
-  res.json({ quiosque: req.session.user.quiosque });
+
+  const quiosqueId = req.session.user.quiosque;
+
+  try {
+    const result = await pool.query(
+      'SELECT nome FROM quiosques WHERE id = $1',
+      [quiosqueId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ erro: 'Quiosque não encontrado' });
+    }
+
+    res.json({
+      quiosque: quiosqueId,
+      nome: result.rows[0].nome,
+      admin: req.session.user.admin,
+      id: req.session.user.id,
+      nivel: req.session.user.nivel || 'user'
+    });
+  } catch (err) {
+    console.error('Erro ao buscar nome do quiosque:', err.message);
+    res.status(500).json({ erro: 'Erro interno ao buscar quiosque' });
+  }
 };
 
 exports.sessionInfo = (req, res) => {
@@ -109,15 +162,14 @@ exports.sessionInfo = (req, res) => {
   });
 };
 
-
 exports.getUsuarioLogado = (req, res) => {
   const usuario = req.session.user || {};
   const quiosque = usuario.quiosque || null;
 
   res.json({
     quiosque: quiosque,
-    admin: usuario.admin === true,  
-    nome: usuario.username || null, 
+    admin: usuario.admin === true,
+    nome: usuario.username || null,
     id: usuario.id || null
   });
 };

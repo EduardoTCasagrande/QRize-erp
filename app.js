@@ -6,6 +6,8 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const resHelper = require('./helpers/res');
 const estoqueRoutes = require('./routes/estoqueRoutes');
+const skuRoutes = require('./routes/skuRoutes');
+
 
 const app = express();
 const PORT = 3000;
@@ -52,6 +54,8 @@ app.use('/', require('./routes/precoRoutes'));
 app.use('/', require('./routes/caixaRoutes'));
 app.use('/', require('./routes/usuarioRoutes'));
 app.use('/', require('./routes/fechamentoRoutes'));
+app.use('/', require('./routes/skuRoutes'));
+
 
 app.use('/cupons', express.static(path.join(__dirname, 'cupons')));
 app.use(estoqueRoutes);

@@ -1,16 +1,14 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
 const baseRelatoriosDir = path.join(__dirname, '../relatorios');
 
 exports.page = (req, res) => {
-  res.render('relatorio'); // Essa view pode listar todos os tipos, como vimos.
+  res.render('relatorio'); // View para listar todos os tipos
 };
 
-// 🔽 Cria e salva relatório em uma subpasta (ex: reposicao, fechamento...)
-exports.salvar = (req, res) => {
-  console.log('Recebido no salvar:', req.body);
-
+// Salvar relatório em subpasta (ex: reposicao, fechamento...)
+exports.salvar = async (req, res) => {
   const { quiosque, dados, separador, tipo } = req.body;
 
   if (!quiosque || !dados || !tipo) {
@@ -18,18 +16,19 @@ exports.salvar = (req, res) => {
   }
 
   const dirDestino = path.join(baseRelatoriosDir, tipo);
-  if (!fs.existsSync(dirDestino)) fs.mkdirSync(dirDestino, { recursive: true });
-
-  let texto = `Separador: ${separador || 'Não informado'}\nQuiosque: ${quiosque}\n\n`;
-  texto += Object.entries(dados)
-    .map(([sku, qtd]) => `${sku}\t${qtd}`)
-    .join('\n');
-
-  const nomeArquivo = `${Date.now()}_${quiosque.replace(/[^a-zA-Z0-9-_]/g, '-')}.txt`;
-  const caminhoArquivo = path.join(dirDestino, nomeArquivo);
 
   try {
-    fs.writeFileSync(caminhoArquivo, texto, 'utf-8');
+    await fs.mkdir(dirDestino, { recursive: true });
+
+    let texto = `Separador: ${separador || 'Não informado'}\nQuiosque: ${quiosque}\n\n`;
+    texto += Object.entries(dados)
+      .map(([sku, qtd]) => `${sku}\t${qtd}`)
+      .join('\n');
+
+    const nomeArquivo = `${Date.now()}_${quiosque.replace(/[^a-zA-Z0-9-_]/g, '-')}.txt`;
+    const caminhoArquivo = path.join(dirDestino, nomeArquivo);
+
+    await fs.writeFile(caminhoArquivo, texto, 'utf-8');
     res.json({ mensagem: "Relatório salvo com sucesso!", arquivo: nomeArquivo });
   } catch (err) {
     console.error("Erro ao salvar relatório:", err);
@@ -37,54 +36,71 @@ exports.salvar = (req, res) => {
   }
 };
 
-// 🔽 Lista relatórios da subpasta
-exports.listar = (req, res) => {
+// Lista relatórios da subpasta
+exports.listar = async (req, res) => {
   const { tipo } = req.params;
   const dirDestino = path.join(baseRelatoriosDir, tipo);
 
-  fs.readdir(dirDestino, (err, files) => {
-    if (err) {
-      return res.status(500).json({ mensagem: `Erro ao listar relatórios de ${tipo}.` });
-    }
+  try {
+    const files = await fs.readdir(dirDestino);
     const txtFiles = files.filter(f => f.endsWith('.txt'));
     res.json(txtFiles);
-  });
+  } catch (err) {
+    res.status(500).json({ mensagem: `Erro ao listar relatórios de ${tipo}.` });
+  }
 };
 
-// 🔽 Lê conteúdo de um relatório da subpasta
-exports.ler = (req, res) => {
+// Lê conteúdo de um relatório da subpasta
+exports.ler = async (req, res) => {
   const { tipo, nomeArquivo } = req.params;
-  const caminhoArquivo = path.join(baseRelatoriosDir, tipo, nomeArquivo);
 
   if (!nomeArquivo.endsWith('.txt') || nomeArquivo.includes('..')) {
     return res.status(400).json({ mensagem: 'Nome de arquivo inválido.' });
   }
+
+  const caminhoArquivo = path.join(baseRelatoriosDir, tipo, nomeArquivo);
 
   if (req.query.raw === 'true') {
-    return res.download(caminhoArquivo, nomeArquivo);
+    // Envia download do arquivo
+    return res.download(caminhoArquivo, nomeArquivo, err => {
+      if (err) {
+        res.status(404).json({ mensagem: 'Arquivo não encontrado.' });
+      }
+    });
   }
 
-  fs.readFile(caminhoArquivo, 'utf-8', (err, data) => {
-    if (err) {
-      return res.status(404).json({ mensagem: 'Arquivo não encontrado.' });
-    }
+  try {
+    const data = await fs.readFile(caminhoArquivo, 'utf-8');
     res.json({ conteudo: data });
-  });
+  } catch {
+    res.status(404).json({ mensagem: 'Arquivo não encontrado.' });
+  }
 };
 
-// 🔽 Exclui relatório da subpasta
-exports.deletar = (req, res) => {
+// Exclui relatório da subpasta
+exports.deletar = async (req, res) => {
   const { tipo, nomeArquivo } = req.params;
-  const caminhoArquivo = path.join(baseRelatoriosDir, tipo, nomeArquivo);
 
   if (!nomeArquivo.endsWith('.txt') || nomeArquivo.includes('..')) {
     return res.status(400).json({ mensagem: 'Nome de arquivo inválido.' });
   }
 
-  fs.unlink(caminhoArquivo, (err) => {
-    if (err) {
-      return res.status(404).json({ mensagem: 'Arquivo não encontrado ou erro ao apagar.' });
-    }
+  const caminhoArquivo = path.join(baseRelatoriosDir, tipo, nomeArquivo);
+
+  try {
+    await fs.access(caminhoArquivo); // Verifica se arquivo existe
+  } catch {
+    console.error(`Arquivo não encontrado para exclusão: ${caminhoArquivo}`);
+    return res.status(404).json({ mensagem: 'Arquivo não encontrado.' });
+  }
+
+  try {
+    await fs.unlink(caminhoArquivo);
+    console.log(`Arquivo excluído: ${caminhoArquivo}`);
     res.json({ mensagem: 'Arquivo apagado com sucesso.' });
-  });
+  } catch (err) {
+    console.error(`Erro ao apagar arquivo ${caminhoArquivo}:`, err);
+    res.status(500).json({ mensagem: 'Erro ao apagar o arquivo.' });
+  }
 };
+

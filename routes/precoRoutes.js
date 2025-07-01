@@ -5,28 +5,27 @@ const precoController = require('../controllers/precoController');
 const { apenasAdmin } = require('../helpers/auth');
 
 // Página HTML para cadastro de SKU
-router.get('/cadastrar-sku', apenasAdmin, (req, res) => {
+router.get('/cadastrar-sku', (req, res) => {
   res.render('sku');
 });
-// POST com upload da foto e cadastro de SKU
-router.post('/cadastrar-sku', apenasAdmin, precoController.cadastrarSku);
+router.post('/cadastrar-sku', precoController.uploadMiddleware, precoController.cadastrarSku);
 
 // API JSON para listar preços
 router.get('/api/precos', precoController.listarPrecos);
 
 // Página de preços
-router.get('/precos', apenasAdmin, precoController.precosPage);
+router.get('/precos', precoController.precosPage);
 
 // Adicionar ou atualizar preço
-router.post('/precos', apenasAdmin, precoController.adicionarPreco);
+router.post('/precos', precoController.adicionarPreco);
 
 // Atualizar preço diretamente por SKU
-router.put('/precos/:sku', apenasAdmin, precoController.atualizarPreco);
+router.put('/precos/:sku', precoController.atualizarPreco);
 
 // Deletar preço por SKU
-router.delete('/precos/:sku', apenasAdmin, precoController.deletarPreco);
+router.delete('/precos/:sku', precoController.deletarPreco);
 
 // ✅ NOVA ROTA para renomear um SKU
-router.post('/precos/renomear', apenasAdmin, precoController.renomearSKU);
+router.post('/precos/renomear', precoController.renomearSKU);
 
 module.exports = router;

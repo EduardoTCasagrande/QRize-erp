@@ -1,11 +1,17 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="transition-colors duration-300">
 <head>
   <meta charset="UTF-8" />
-  <title>Gerenciar Usuários e Quiosques</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
+  <title>QRize - Painel</title>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen font-sans transition-colors duration-300">
 
   <%- include('partials/header') %>
 
@@ -20,12 +26,12 @@
           <!-- Usuário -->
           <div>
             <p class="font-semibold mb-1">Usuário:</p>
-            <% if (user.nivel === 'deus') { %>
+            <% if (user.nivel === 'DEUS') { %>
               <input type="text" value="DADO" disabled
                 class="w-full border border-gray-300 rounded-md p-2 bg-gray-100 cursor-not-allowed" />
               <button disabled
                 class="mt-2 px-3 py-1 bg-gray-400 text-white rounded opacity-50 cursor-not-allowed">Protegido</button>
-            <% } else if (userSession.nivel === 'deus') { %>
+            <% } else if (userSession.nivel === 'DEUS') { %>
               <input type="text" id="username-<%= user.id %>" value="<%= user.username %>"
                 class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <button onclick="atualizarUsername(<%= user.id %>)"
@@ -39,12 +45,12 @@
           <!-- Quiosque -->
           <div>
             <p class="font-semibold mb-1">Quiosque:</p>
-            <% if (user.nivel === 'deus') { %>
+            <% if (user.nivel === 'DEUS') { %>
               <input type="text" value="Protegido" disabled
                 class="w-full border border-gray-300 rounded-md p-2 bg-gray-100 cursor-not-allowed" />
               <button disabled
                 class="mt-2 px-3 py-1 bg-gray-400 text-white rounded opacity-50 cursor-not-allowed">Protegido</button>
-            <% } else if (userSession.nivel === 'deus') { %>
+            <% } else if (userSession.nivel === 'DEUS') { %>
               <select id="quiosque-<%= user.id %>"
                 class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <% quiosques.forEach(q => { %>
@@ -65,12 +71,12 @@
             <p class="mb-4 text-gray-700 font-mono"><%= user.nivel %></p>
 
             <p class="font-semibold mb-1">Senha:</p>
-            <% if (user.nivel === 'deus') { %>
+            <% if (user.nivel === 'DEUS') { %>
               <input type="password" placeholder="Senha protegida" disabled
                 class="w-full border border-gray-300 rounded-md p-2 bg-gray-100 cursor-not-allowed" />
               <button disabled
                 class="mt-2 px-3 py-1 bg-gray-400 text-white rounded opacity-50 cursor-not-allowed">Protegido</button>
-            <% } else if (userSession.nivel === 'deus') { %>
+            <% } else if (userSession.nivel === 'DEUS') { %>
               <input type="password" placeholder="Nova senha" id="senha-<%= user.id %>"
                 class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <button onclick="atualizarSenha(<%= user.id %>)"
@@ -143,6 +149,7 @@
       msg.style.color = data.status === 'ok' ? 'green' : 'red';
     }
   </script>
+  <script src="/js/darkmode.js"></script>
 
 </body>
 </html>

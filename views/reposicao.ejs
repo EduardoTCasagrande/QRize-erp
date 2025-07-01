@@ -1,26 +1,33 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="transition-colors duration-300">
 <head>
   <meta charset="UTF-8" />
   <title>Reposição de Produtos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
 
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col min-h-screen font-sans transition-colors duration-300">
+
+  
   <%- include('partials/header') %>
 
   <main class="flex-grow container mx-auto p-6">
     <div class="flex flex-col md:flex-row md:space-x-6 space-y-6 md:space-y-0">
-      
-      <!-- Box da esquerda: Formulário e controle -->
-      <div class="bg-white rounded shadow p-6 flex-1">
+
+      <!-- Box esquerda -->
+      <div class="bg-white dark:bg-gray-800/90 backdrop-blur rounded-2xl shadow p-6 flex-1 transition-colors">
         <h1 class="text-2xl font-semibold mb-4">Reposição</h1>
 
         <label for="quiosqueSelect" class="block font-medium mb-1">Selecione o quiosque:</label>
         <select
           id="quiosqueSelect"
-          class="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 mb-4 transition"
           <%= (user.admin || user.nivel === 'repositor') ? '' : 'disabled hidden' %>
         >
           <% if (!(user.admin || user.nivel === 'repositor')) { %>
@@ -36,31 +43,31 @@
           id="inputSKU"
           placeholder="Escaneie com o bipador"
           autofocus
-          class="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 mb-4 transition"
         />
 
-        <div class="mb-4 text-center text-gray-700" id="mensagem">Selecione um quiosque para começar.</div>
+        <div class="mb-4 text-center text-gray-700 dark:text-gray-300" id="mensagem">Selecione um quiosque para começar.</div>
 
         <label for="separadorInput" class="block font-medium mb-1">Quem separou:</label>
         <input
           type="text"
           id="separadorInput"
           placeholder="Nome do separador"
-          class="w-full border border-gray-300 rounded px-3 py-2 mb-6"
+          class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded px-3 py-2 mb-6 transition"
         />
 
         <button
           onclick="enviarRelatorio()"
-          class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+          class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 text-white font-semibold py-2 rounded-lg transition"
         >
           📤 Finalizar Reposição
         </button>
       </div>
 
-      <!-- Box da direita: Resumo e audios -->
-      <div class="bg-white rounded shadow p-6 flex-1 flex flex-col">
+      <!-- Box direita -->
+      <div class="bg-white dark:bg-gray-800/90 backdrop-blur rounded-2xl shadow p-6 flex-1 flex flex-col transition-colors">
         <div id="cabecalho" class="mb-4 font-semibold text-lg"></div>
-        <div id="resumo" class="flex-grow overflow-auto text-gray-800"></div>
+        <div id="resumo" class="flex-grow overflow-auto text-gray-800 dark:text-gray-200 text-sm"></div>
 
         <audio id="beep-sound" src="/certo.mp3" preload="auto"></audio>
         <audio id="erro-sound" src="/errado.mp3" preload="auto"></audio>
@@ -295,5 +302,7 @@
 
     window.onload = carregarQuiosqueDaSessao;
   </script>
+  <script src="/js/darkmode.js"></script>
+
 </body>
 </html>
