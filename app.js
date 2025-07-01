@@ -44,22 +44,6 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const allowedRanges = ['100.64.0.0/10']; // faixa IPs da Tailscale
-
-app.use((req, res, next) => {
-  let clientIp = req.ip;
-  if (clientIp.startsWith('::ffff:')) {
-    clientIp = clientIp.replace('::ffff:', '');
-  }
-  console.log('IP do cliente:', clientIp);
-  
-  if (ipRangeCheck(clientIp, allowedRanges)) {
-    return next();
-  }
-  
-  res.status(403).send(`Acesso permitido somente via VPN. Seu IP: ${clientIp}`);
-});
-
 app.use('/login', loginLimiter);
 
 // Rotas
@@ -84,7 +68,7 @@ app.use((req, res) => {
 });
 
 // Inicialização do servidor
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
 
